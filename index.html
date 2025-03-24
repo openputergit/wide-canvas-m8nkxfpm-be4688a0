@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Finance Tracker | Three.js Edition</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #e6eef0;
+            overflow-x: hidden;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        .primary-btn {
+            background-color: #000000;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .primary-btn:hover {
+            background-color: #333333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        input, select {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 10px 12px;
+            outline: none;
+        }
+        input:focus, select:focus {
+            border-color: #000000;
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+        }
+        .section-fade-in {
+            animation: fadeIn 0.8s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .tab-active {
+            border-bottom: 3px solid #000;
+            color: #000;
+            font-weight: 600;
+        }
+        .tab {
+            transition: all 0.3s ease;
+        }
+        /* Expense Split Feature Styles */
+        .split-avatar {
+            width: 32px;
+            height: 32px;
+            background-color: #000;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .split-item {
+            transition: all 0.2s ease;
+        }
+        .split-item:hover {
+            background-color: rgba(0,0,0,0.03);
+        }
+        #splitSection {
+            display: none;
+        }
+        #profileSection {
+            display: none;
+        }
+        /* Mobile responsiveness improvements */
+        @media (max-width: 768px) {
+            .card {
+                padding: 16px;
+                margin-bottom: 16px;
+            }
+            .stats-container {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .mobile-full {
+                width: 100%;
+            }
+            .mobile-tab {
+                padding: 8px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Three.js background container -->
+    <div id="canvas-container"></div>
+
+    <!-- Mobile Navigation -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white shadow-lg z-50 md:hidden">
+        <div class="flex justify-around items-center px-2 py-3">
+            <button onclick="showSection('homeSection')" class="flex flex-col items-center text-gray-700">
+                <i class="bi bi-house text-xl"></i>
+                <span class="text-xs mt-1">Home</span>
+            </button>
+            <button onclick="showSection('splitSection')" class="flex flex-col items-center text-gray-700">
+                <i class="bi bi-people text-xl"></i>
+                <span class="text-xs mt-1">Split</span>
+            </button>
+            <button onclick="showSection('addTransaction')" class="flex flex-col items-center bg-black text-white rounded-full w-12 h-12 justify-center -mt-5">
+                <i class="bi bi-plus-lg text-xl"></i>
+            </button>
+            <button onclick="showSection('activitySection')" class="flex flex-col items-center text-gray-700">
+                <i class="bi bi-clock-history text-xl"></i>
+                <span class="text-xs mt-1">Activity</span>
+            </button>
+            <button onclick="showSection('profileSection')" class="flex flex-col items-center text-gray-700">
+                <i class="bi bi-person text-xl"></i>
+                <span class="text-xs mt-1">Profile</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8 relative z-10 mb-20">
+        <!-- Header -->
+        <header class="text-center mb-8 section-fade-in hidden md:block">
+            <h1 class="text-3xl md:text-4xl font-bold text-black mb-2">Student Finance Tracker</h1>
+            <p class="text-gray-700">Take control of your finances while you study</p>
+        </header>
+
+        <!-- Desktop Navigation -->
+        <div class="hidden md:flex justify-center mb-8 space-x-6">
+            <button onclick="showSection('homeSection')" class="tab px-4 py-2 text-gray-700 hover:text-black tab-active">
+                Dashboard
+            </button>
+            <button onclick="showSection('splitSection')" class="tab px-4 py-2 text-gray-700 hover:text-black">
+                Split Expenses
+            </button>
+            <button onclick="showSection('activitySection')" class="tab px-4 py-2 text-gray-700 hover:text-black">
+                Activity
+            </button>
+            <button onclick="showSection('profileSection')" class="tab px-4 py-2 text-gray-700 hover:text-black">
+                Profile
+            </button>
+        </div>
+
+        <!-- Home Section - Main Dashboard -->
+        <div id="homeSection">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Balance Card -->
+                <div class="card shadow-xl p-6 section-fade-in" style="animation-delay: 0.1s;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold">Current Balance</h2>
+                        <span class="bg-black bg-opacity-10 text-black px-3 py-1 rounded-full text-sm">Live</span>
+                    </div>
+                    <div class="text-4xl font-bold mb-4" id="currentBalance">$0.00</div>
+                    <div class="flex justify-between mt-4 stats-container">
+                        <div class="bg-green-50 p-3 rounded-lg flex-1 mr-2">
+                            <div class="text-sm text-green-700">Income</div>
+                            <div class="font-semibold text-green-800" id="totalIncome">$0.00</div>
+                        </div>
+                        <div class="bg-red-50 p-3 rounded-lg flex-1 ml-2">
+                            <div class="text-sm text-red-700">Expenses</div>
+                            <div class="font-semibold text-red-800" id="totalExpenses">$0.00</div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex justify-between text-sm text-gray-600 mb-1">
+                            <span>Spending this month</span>
+                            <span id="spendingPercent">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="spendingProgress" class="bg-black h-2 rounded-full progress-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Add Transaction -->
+                <div id="addTransaction" class="card shadow-xl p-6 section-fade-in" style="animation-delay: 0.2s;">
+                    <h2 class="text-xl font-semibold mb-4">Record Transaction</h2>
+                    <form id="transactionForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Transaction Type</label>
+                            <select id="transactionType" class="w-full px-3 py-2 bg-white rounded-lg">
+                                <option value="income">Income</option>
+                                <option value="expense">Expense</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                <input type="number" id="amount" class="w-full pl-8 pr-3 py-2" placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                            <select id="category" class="w-full px-3 py-2 bg-white rounded-lg">
+                                <option value="food">Food & Dining</option>
+                                <option value="transport">Transport</option>
+                                <option value="entertainment">Entertainment</option>
+                                <option value="education">Education</option>
+                                <option value="housing">Housing & Rent</option>
+                                <option value="shopping">Shopping</option>
+                                <option value="utilities">Utilities</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
+                            <input type="text" id="description" class="w-full px-3 py-2" placeholder="e.g., Lunch with friends">
+                        </div>
+                        <div>
+                            <label class="flex items-center text-sm font-medium text-gray-700 mb-1 cursor-pointer">
+                                <input type="checkbox" id="splitExpense" class="mr-2 h-4 w-4">
+                                Split this expense with others
+                            </label>
+                        </div>
+                        <button type="submit" class="w-full primary-btn py-3 px-4 rounded-lg font-medium flex items-center justify-center">
+                            <i class="bi bi-plus-circle mr-2"></i>Add Transaction
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Budget Progress -->
+                <div class="card shadow-xl p-6 section-fade-in" style="animation-delay: 0.3s;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold">Budget Progress</h2>
+                        <button id="setBudgetBtn" class="text-sm py-1 px-3 bg-black text-white rounded-full hover:bg-opacity-80 transition">Set Budget</button>
+                    </div>
+                    <div id="budgetProgressContainer" class="space-y-4">
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm font-medium flex items-center">
+                                    <i class="bi bi-cart mr-2"></i>Food & Dining
+                                </span>
+                                <span class="text-sm font-medium" id="foodPercent">70%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div class="bg-blue-600 h-2.5 rounded-full progress-bar" id="foodProgress" style="width: 70%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>$<span id="foodSpent">70</span> spent</span>
+                                <span>$<span id="foodBudget">100</span> budget</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm font-medium flex items-center">
+                                    <i class="bi bi-bus-front mr-2"></i>Transport
+                                </span>
+                                <span class="text-sm font-medium" id="transportPercent">45%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div class="bg-green-600 h-2.5 rounded-full progress-bar" id="transportProgress" style="width: 45%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>$<span id="transportSpent">45</span> spent</span>
+                                <span>$<span id="transportBudget">100</span> budget</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm font-medium flex items-center">
+                                    <i class="bi bi-controller mr-2"></i>Entertainment
+                                </span>
+                                <span class="text-sm font-medium" id="entertainmentPercent">90%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div class="bg-red-600 h-2.5 rounded-full progress-bar" id="entertainmentProgress" style="width: 90%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>$<span id="entertainmentSpent">90</span> spent</span>
+                                <span>$<span id="entertainmentBudget">100</span> budget</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="setBudgetForm" class="space-y-4 hidden mt-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                            <select id="budgetCategory" class="w-full px-3 py-2 bg-white rounded-lg">
+                                <option value="food">Food & Dining</option>
+                                <option value="transport">Transport</option>
+                                <option value="entertainment">Entertainment</option>
+                                <option value="education">Education</option>
+                                <option value="housing">Housing & Rent</option>
+                                <option value="shopping">Shopping</option>
+                                <option value="utilities">Utilities</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Budget Amount</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                <input type="number" id="budgetAmount" class="w-full pl-8 pr-3 py-2" placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button type="button" id="saveBudgetBtn" class="flex-1 primary-btn py-2 px-4 rounded-lg font-medium">
+                                Save Budget
+                            </button>
+                            <button type="button" id="cancelBudgetBtn" class="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg font-medium hover:bg-gray-300 transition">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Transactions -->
+                <div class="card shadow-xl p-6 section-fade-in col-span-1 md:col-span-2 lg:col-span-2" style="animation-delay: 0.4s;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold">Recent Transactions</h2>
+                        <button class="text-sm text-black hover:underline" id="viewAllTransactionsBtn">View All</button>
+                    </div>
+                    <div class="overflow-hidden">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3 text-sm font-medium text-gray-500">Description</th>
+                                    <th class="text-left py-3 text-sm font-medium text-gray-500">Category</th>
+                                    <th class="text-right py-3 text-sm font-medium text-gray-500">Amount</th>
+                                    <th class="text-right py-3 text-sm font-medium text-gray-500">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionList">
+                                <!-- Transactions will be added here -->
+                            </tbody>
+                        </table>
+                        <div id="noTransactions" class="text-center text-gray-500 py-4">
+                            No transactions yet. Add your first transaction!
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Savings Goals -->
+                <div class="card shadow-xl p-6 section-fade-in" style="animation-delay: 0.5s;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold">Savings Goals</h2>
+                        <button id="addGoalBtn" class="text-sm py-1 px-3 bg-black text-white rounded-full hover:bg-opacity-80 transition">Add Goal</button>
+                    </div>
+                    <div id="savingsGoalsContainer">
+                        <div class="flex flex-col space-y-4">
+                            <div class="border border-gray-100 rounded-lg p-3">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h3 class="font-medium">New Laptop</h3>
+                                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">In Progress</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                                    <div class="bg-blue-600 h-2.5 rounded-full" style="width: 40%"></div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-500">
+                                    <span>$400 saved</span>
+                                    <span>$1000 goal</span>
+                                </div>
+                            </div>
+                            <div class="border border-gray-100 rounded-lg p-3">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h3 class="font-medium">Summer Trip</h3>
+                                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">On Track</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                                    <div class="bg-green-600 h-2.5 rounded-full" style="width: 60%"></div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-500">
+                                    <span>$300 saved</span>
+                                    <span>$500 goal</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="addGoalForm" class="space-y-4 hidden mt-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Goal Name</label>
+                            <input type="text" id="goalName" class="w-full px-3 py-2" placeholder="e.g., New Laptop">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Target Amount</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                <input type="number" id="goalAmount" class="w-full pl-8 pr-3 py-2" placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Target Date</label>
+                            <input type="date" id="goalDate" class="w-full px-3 py-2">
+                        </div>
+                        <div class="flex space-x-2">
+                            <button type="button" id="saveGoalBtn" class="flex-1 primary-btn py-2 px-4 rounded-lg font-medium">
+                                Save Goal
+                            </button>
+                            <button type="button" id="cancelGoalBtn" class="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg font-medium hover:bg-gray-300 transition">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Split Expenses Section -->
+        <div id="splitSection">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Current Groups -->
+                <div class="card shadow-xl p-6 section-fade-in col-span-1">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold">Your Groups</h2>
+                        <button id="createGroupBtn" class="text-sm py-1 px-3 bg-black text-white rounded-full hover:bg-opacity-80 transition">
+                            <i class="bi bi-plus-lg"></i> New
+                        </button>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="split-item p-3 rounded-lg cursor-pointer" onclick="selectGroup('roommates')">
+                            <div class="flex items-center">
+                                <div class="flex -space-x-2 mr-3">
+                                    <div class="split-avatar z-30 border-2 border-white bg-indigo-600">S</div>
+                                    <div class="split-avatar z-20 border-2 border-white bg-pink-600">A</div>
+                                    <div class="split-avatar z-10 border-2 border-white bg-green-600">J</div>
+                                </div>
+                                <div>
+                                    <h3 class="font-medium">Roommates</h3>
+                                    <p class="text-xs text-gray-500">3 members</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="split-item p-3 rounded-lg cursor-pointer" onclick="selectGroup('trip')">
+                            <div class="flex items-center">
+                                <div class="flex -space-x-2 mr-3">
+                                    <div class="split-avatar z-30 border-2 border-white bg-blue-600">M</div>
+                                    <div class="split-avatar z-20 border-2 border-white bg-yellow-600">T</div>
+                                </div>
+                                <div>
+                                    <h3 class="font-medium">Spring Break Trip</h3>
+                                    <p class="text-xs text-gray-500">2 members</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="split-item p-3 rounded-lg cursor-pointer" onclick="selectGroup('project')">
+                            <div class="flex items-center">
+                                <div class="flex -space-x-2 mr-3">
+                                    <div class="split-avatar z-30 border-2 border-white bg-purple-600">L</div>
+                                    <div class="split-avatar z-20 border-2 border-white bg-red-600">R</div>
+                                    <div class="split-avatar z-10 border-2 border-white bg-green-600">K</div>
+                                </div>
+                                <div>
+                                    <h3 class="font-medium">Group Project</h3>
+                                    <p class="text-xs text-gray-500">3 members</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Create Group Form -->
+                    <div id="createGroupForm" class="space-y-4 hidden mt-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Group Name</label>
+                            <input type="text" id="groupName" class="w-full px-3 py-2" placeholder="e.g., Study Group">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Add Members (comma separated)</label>
+                            <input type="text" id="groupMembers" class="w-full px-3 py-2" placeholder="e.g., alex@email.com, sam@email.com">
+                        </div>
+                        <div class="flex space-x-2">
+                            <button type="button" id="saveGroupBtn" class="flex-1 primary-btn py-2 px-4 rounded-lg font-medium">
+                                Create Group
+                            </button>
+                            <button type="button" id="cancelGroupBtn" class="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg font-medium hover:bg-gray-300 transition">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Group Details and Expenses -->
+                <div class="card shadow-xl p-6 section-fade-in col-span-1 md:col-span-2">
+                    <div id="noGroupSelected" class="text-center py-10">
+                        <i class="bi bi-people text-5xl text-gray-300"></i>
+                        <p class="text-gray-500 mt-4">Select a group to see expenses and balances</p>
+                    </div>
+
+                    <div id="groupDetails" class="hidden">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h2 class="text-xl font-semibold" id="selectedGroupName">Roommates</h2>
+                                <p class="text-sm text-gray-500" id="selectedGroupMembers">3 members</p>
+                            </div>
+                            <button id="addSplitExpenseBtn" class="text-sm py-1 px-3 bg-black text-white rounded-lg hover:bg-opacity-80 transition">
+                                Add Expense
+                            </button>
+                        </div>
+
+                        <!-- Group Balances -->
+                        <div class="mb-6">
+                            <h3 class="font-medium text-gray-700 mb-3">Group Balances</h3>
+                            <div class="space-y-3" id="balancesList">
+                                <div class="flex justify-between items-center p-2 bg-green-50 rounded-lg">
+                                    <div class="flex items-center">
+                                        <div class="split-avatar mr-2 bg-indigo-600">S</div>
+                                        <span>Sarah</span>
+                                    </div>
+                                    <span class="text-green-600 font-medium">+$25.00</span>
+                                </div>
+                                <div class="flex justify-between items-center p-2 bg-red-50 rounded-lg">
+                                    <div class="flex items-center">
+                                        <div class="split-avatar mr-2 bg-pink-600">A</div>
+                                        <span>Alex</span>
+                                    </div>
+                                    <span class="text-red-600 font-medium">-$12.50</span>
+                                </div>
+                                <div class="flex justify-between items-center p-2 bg-red-50 rounded-lg">
+                                    <div class="flex items-center">
+                                        <div class="split-avatar mr-2 bg-green-600">J</div>
+                                        <span>Jamie</span>
+                                    </div>
+                                    <span class="text-red-600 font-medium">-$12.50</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Group Expenses -->
+                        <div>
+                            <h3 class="font-medium text-gray-700 mb-3">Recent Expenses</h3>
+                            <div class="space-y-3" id="expensesList">
+                                <div class="flex justify-between items-center p-3 border border-gray-100 rounded-lg">
+                                    <div>
+                                        <div class="flex items-center">
+                                            <div class="split-avatar mr-2 bg-indigo-600">S</div>
+                                            <span class="text-sm">Sarah paid</span>
+                                        </div>
+                                        <p class="text-gray-700 font-medium mt-1">Groceries</p>
+                                        <p class="text-xs text-gray-500">May 10, 2023</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-semibold">$75.00</p>
+                                        <p class="text-xs text-gray-500">Split equally</p>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center p-3 border border-gray-100 rounded-lg">
+                                    <div>
+                                        <div class="flex items-center">
+                                            <div class="split-avatar mr-2 bg-green-600">J</div>
+                                            <span class="text-sm">Jamie paid</span>
+                                        </div>
+                                        <p class="text-gray-700 font-medium mt-1">Internet Bill</p>
+                                        <p class="text-xs text-gray-500">May 5, 2023</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-semibold">$45.00</p>
+                                        <p class="text-xs text-gray-500">Split equally</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Add Split Expense Form -->
+                        <div id="addSplitExpenseForm" class="space-y-4 hidden mt-6 border-t border-gray-100 pt-4">
+                            <h3 class="font-medium">Add Expense to Group</h3>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <input type="text" id="splitDescription" class="w-full px-3 py-2" placeholder="e.g., Dinner">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                    <input type="number" id="splitAmount" class="w-full pl-8 pr-3 py-2" placeholder="0.00" required>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Paid By</label>
+                                <select id="paidBy" class="w-full px-3 py-2 bg-white rounded-lg">
+                                    <option value="you">You</option>
+                                    <option value="sarah">Sarah</option>
+                                    <option value="alex">Alex</option>
+                                    <option value="jamie">Jamie</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Split Method</label>
+                                <select id="splitMethod" class="w-full px-3 py-2 bg-white rounded-lg">
+                                    <option value="equal">Split Equally</option>
+                                    <option value="percent">Split by Percentage</option>
+                                    <option value="exact">Split by Exact Amounts</option>
+                                </select>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button type="button" id="saveSplitExpenseBtn" class="flex-1 primary-btn py-2 px-4 rounded-lg font-medium">
+                                    Save Expense
+                                </button>
+                                <button type="button" id="cancelSplitExpenseBtn" class="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg font-medium hover:bg-gray-300 transition">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Section -->
+        <div id="activitySection">
+            <div class="card shadow-xl p-6 section-fade-in">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">All Transactions</h2>
+                    <div>
+                        <select id="activityFilter" class="px-3 py-1 bg-white rounded-lg text-sm border border-gray-200">
+                            <option value="all">All Activity</option>
+                            <option value="income">Income Only</option>
+                            <option value="expense">Expenses Only</option>
+                            <option value="splits">Group Splits Only</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="border-b border-gray-200">
+                                <th class="text-left py-3 text-sm font-medium text-gray-500">Description</th>
+                                <th class="text-left py-3 text-sm font-medium text-gray-500">Category</th>
+                                <th class="text-right py-3 text-sm font-medium text-gray-500">Amount</th>
+                                <th class="text-right py-3 text-sm font-medium text-gray-500">Date</th>
+                                <th class="text-right py-3 text-sm font-medium text-gray-500">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allTransactionsList">
+                            <!-- Populated with JavaScript -->
+                        </tbody>
+                    </table>
+                    <div id="noActivityTransactions" class="text-center text-gray-500 py-4">
+                        No transactions found for the selected filter.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Section -->
+        <div id="profileSection">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="card shadow-xl p-6 section-fade-in col-span-1">
+                    <div class="flex flex-col items-center">
+                        <div class="w-24 h-24 rounded-full bg-black text-white flex items-center justify-center text-3xl font-bold mb-4">
+                            S
+                        </div>
+                        <h2 class="text-xl font-semibold">Student Name</h2>
+                        <p class="text-gray-500 text-sm mt-1">student@email.com</p>
+                        <button class="mt-4 text-sm py-2 px-4 bg-black text-white rounded-lg hover:bg-opacity-80 transition">
+                            Edit Profile
+                        </button>
+                    </div>
+                    
+                    <div class="mt-6 pt-6 border-t border-gray-100">
+                        <h3 class="font-medium mb-3">Account Settings</h3>
+                        <div class="space-y-3">
+                            <button class="w-full text-left text-sm py-2 px-3 hover:bg-gray-50 rounded-lg flex items-center">
+                                <i class="bi bi-gear mr-2"></i> General Settings
+                            </button>
+                            <button class="w-full text-left text-sm py-2 px-3 hover:bg-gray-50 rounded-lg flex items-center">
+                                <i class="bi bi-bell mr-2"></i> Notifications
+                            </button>
+                            <button class="w-full text-left text-sm py-2 px-3 hover:bg-gray-50 rounded-lg flex items-center">
+                                <i class="bi bi-shield-lock mr-2"></i> Privacy & Security
+                            </button>
+                            <button class="w-full text-left text-sm py-2 px-3 hover:bg-gray-50 rounded-lg flex items-center">
+                                <i class="bi bi-currency-exchange mr-2"></i> Currency Preferences
+                            </button>
+                            <button class="w-full text-left text-sm py-2 px-3 hover:bg-gray-50 rounded-lg flex items-center">
+                                <i class="bi bi-question-circle mr-2"></i> Help & Support
+                            </button>
+                            <button class="w-full text-left text-sm py-2 px-3 hover:bg-gray-50 rounded-lg flex items-center text-red-500">
+                                <i class="bi bi-box-arrow-right mr-2"></i> Sign Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card shadow-xl p-6 section-fade-in col-span-1 md:col-span-2">
+                    <h2 class="text-xl font-semibold mb-4">Financial Summary</h2>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="font-medium text-gray-700 mb-3">Spending Trends</h3>
+                            <div class="h-60 bg-gray-50 rounded-lg flex items-center justify-center">
+                                <!-- Placeholder for chart -->
+                                <p class="text-gray-400">Monthly spending chart will appear here</p>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="text-sm font-medium text-gray-600 mb-2">Top Expense Category</h4>
+                                <div class="flex justify-between items-center">
+                                    <span class="font-semibold">Food & Dining</span>
+                                    <span class="bg-black text-white text-xs px-2 py-1 rounded-full">45%</span>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="text-sm font-medium text-gray-600 mb-2">Savings Rate</h4>
+                                <div class="flex justify-between items-center">
+                                    <span class="font-semibold">15% of Income</span>
+                                    <span class="bg-green-500 text-white text-xs px-2 py-1 rounded-full">Good</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 class="font-medium text-gray-700 mb-3">Badges & Achievements</h3>
+                            <div class="flex flex-wrap gap-3">
+                                <div class="bg-gray-50 p-3 rounded-lg flex flex-col items-center">
+                                    <i class="bi bi-piggy-bank text-2xl text-purple-500"></i>
+                                    <span class="text-xs mt-1">Saver</span>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded-lg flex flex-col items-center">
+                                    <i class="bi bi-graph-up text-2xl text-blue-500"></i>
+                                    <span class="text-xs mt-1">Budgeter</span>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded-lg flex flex-col items-center opacity-50">
+                                    <i class="bi bi-trophy text-2xl text-yellow-500"></i>
+                                    <span class="text-xs mt-1">Goal Master</span>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded-lg flex flex-col items-center opacity-50">
+                                    <i class="bi bi-calendar-check text-2xl text-green-500"></i>
+                                    <span class="text-xs mt-1">Consistent</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Three.js from CDN -->
+    <script src="https://unpkg.com/three@0.148.0/build/three.min.js"></script>
+    
+    <script>
+        // Three.js background setup
+        function initThreeJsBackground() {
+            const container = document.getElementById('canvas-container');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0xe6eef0, 1);
+            container.appendChild(renderer.domElement);
+            
+            // Create floating particles
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 1500;
+            
+            const posArray = new Float32Array(particlesCount * 3);
+            for (let i = 0; i < particlesCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 10;
+            }
+            
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            
+            const particlesMaterial = new THREE.PointsMaterial({
+                size: 0.005,
+                color: 0x000000, // Black particles
+                transparent: true
+            });
+            
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+            
+            camera.position.z = 2;
+            
+            // Animation
+            const animate = () => {
+                requestAnimationFrame(animate);
+                
+                particlesMesh.rotation.x += 0.0001;
+                particlesMesh.rotation.y += 0.0001;
+                
+                renderer.render(scene, camera);
+            };
+            
+            // Handle window resizing
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+            
+            animate();
+        }
+        
+        // Initialize Three.js on page load
+        document.addEventListener('DOMContentLoaded', initThreeJsBackground);
+
+        // Finance tracker functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Variables for financial data
+            let balance = 0;
+            let income = 0;
+            let expenses = 0;
+            let transactions = [];
+            let allTransactions = [];
+            let splitExpenses = [];
+            
+            // Groups data structure
+            let groups = {
+                'roommates': {
+                    name: 'Roommates',
+                    members: ['Sarah', 'Alex', 'Jamie', 'You'],
+                    balances: {'Sarah': 25.00, 'Alex': -12.50, 'Jamie': -12.50}
+                },
+                'trip': {
+                    name: 'Spring Break Trip',
+                    members: ['Mike', 'Taylor', 'You'],
+                    balances: {'Mike': -30.00, 'Taylor': 30.00}
+                },
+                'project': {
+                    name: 'Group Project',
+                    members: ['Leah', 'Ryan', 'Kim', 'You'],
+                    balances: {'Leah': 0, 'Ryan': 0, 'Kim': 0}
+                }
+            };
+            
+            // Budget data structure - initial values
+            let budgets = {
+                food: 100,
+                transport: 100,
+                entertainment: 100,
+                education: 100,
+                housing: 200,
+                shopping: 100,
+                utilities: 150,
+                other: 50
+            };
+            
+            // Spending data structure
+            let spending = {
+                food: 70,
+                transport: 45,
+                entertainment: 90,
+                education: 0,
+                housing: 0,
+                shopping: 0,
+                utilities: 0,
+                other: 0
+            };
+            
+            // DOM elements
+            const transactionForm = document.getElementById('transactionForm');
+            const transactionList = document.getElementById('transactionList');
+            const noTransactions = document.getElementById('noTransactions');
+            const allTransactionsList = document.getElementById('allTransactionsList');
+            const noActivityTransactions = document.getElementById('noActivityTransactions');
+            const setBudgetBtn = document.getElementById('setBudgetBtn');
+            const setBudgetForm = document.getElementById('setBudgetForm');
+            const saveBudgetBtn = document.getElementById('saveBudgetBtn');
+            const cancelBudgetBtn = document.getElementById('cancelBudgetBtn');
+            const addGoalBtn = document.getElementById('addGoalBtn');
+            const addGoalForm = document.getElementById('addGoalForm');
+            const saveGoalBtn = document.getElementById('saveGoalBtn');
+            const cancelGoalBtn = document.getElementById('cancelGoalBtn');
+            const createGroupBtn = document.getElementById('createGroupBtn');
+            const createGroupForm = document.getElementById('createGroupForm');
+            const saveGroupBtn = document.getElementById('saveGroupBtn');
+            const cancelGroupBtn = document.getElementById('cancelGroupBtn');
+            const addSplitExpenseBtn = document.getElementById('addSplitExpenseBtn');
+            const addSplitExpenseForm = document.getElementById('addSplitExpenseForm');
+            const saveSplitExpenseBtn = document.getElementById('saveSplitExpenseBtn');
+            const cancelSplitExpenseBtn = document.getElementById('cancelSplitExpenseBtn');
+            const activityFilter = document.getElementById('activityFilter');
+            const viewAllTransactionsBtn = document.getElementById('viewAllTransactionsBtn');
+            
+            // Tab Navigation
+            showSection('homeSection');
+            
+            // Initialize display
+            updateFinancialDisplay();
+            updateBudgetDisplay();
+            
+            // Event listeners
+            transactionForm.addEventListener('submit', handleTransactionSubmit);
+            setBudgetBtn.addEventListener('click', toggleBudgetForm);
+            saveBudgetBtn.addEventListener('click', saveBudget);
+            cancelBudgetBtn.addEventListener('click', toggleBudgetForm);
+            addGoalBtn.addEventListener('click', toggleGoalForm);
+            saveGoalBtn.addEventListener('click', saveGoal);
+            cancelGoalBtn.addEventListener('click', toggleGoalForm);
+            createGroupBtn.addEventListener('click', toggleGroupForm);
+            saveGroupBtn.addEventListener('click', saveGroup);
+            cancelGroupBtn.addEventListener('click', toggleGroupForm);
+            addSplitExpenseBtn.addEventListener('click', toggleSplitExpenseForm);
+            saveSplitExpenseBtn.addEventListener('click', saveSplitExpense);
+            cancelSplitExpenseBtn.addEventListener('click', toggleSplitExpenseForm);
+            viewAllTransactionsBtn.addEventListener('click', function() {
+                showSection('activitySection');
+            });
+            activityFilter.addEventListener('change', function() {
+                displayAllTransactions(activityFilter.value);
+            });
+            
+            // Functions
+            function handleTransactionSubmit(e) {
+                e.preventDefault();
+                
+                const type = document.getElementById('transactionType').value;
+                const amount = parseFloat(document.getElementById('amount').value);
+                const category = document.getElementById('category').value;
+                const description = document.getElementById('description').value || category.charAt(0).toUpperCase() + category.slice(1);
+                const date = new Date();
+                const isSplit = document.getElementById('splitExpense').checked;
+                
+                // Validate amount
+                if (isNaN(amount) || amount <= 0) {
+                    alert('Please enter a valid amount');
+                    return;
+                }
+                
+                // Create transaction object
+                const transaction = {
+                    id: Date.now(),
+                    type,
+                    amount,
+                    category,
+                    description,
+                    date,
+                    isSplit
+                };
+                
+                // Add to transactions array
+                transactions.unshift(transaction);
+                allTransactions.unshift(transaction);
+                
+                // Update financial data
+                if (type === 'income') {
+                    income += amount;
+                    balance += amount;
+                } else {
+                    expenses += amount;
+                    balance -= amount;
+                    
+                    // Update spending for the category
+                    if (spending.hasOwnProperty(category)) {
+                        spending[category] += amount;
+                    } else {
+                        spending.other += amount;
+                    }
+                }
+                
+                // If it's a split expense and the checkbox is checked
+                if (type === 'expense' && isSplit) {
+                    // Show the split expense section
+                    showSection('splitSection');
+                    
+                    // Auto-fill the split form with the transaction details
+                    document.getElementById('splitDescription').value = description;
+                    document.getElementById('splitAmount').value = amount;
+                    
+                    // Show notification about finishing the split
+                    showNotification('Now specify how to split this expense');
+                }
+                
+                // Update UI
+                updateFinancialDisplay();
+                updateBudgetDisplay();
+                displayTransactions();
+                displayAllTransactions(activityFilter.value);
+                
+                // Reset form
+                transactionForm.reset();
+                
+                // Show success message
+                showNotification('Transaction added successfully!');
+            }
+            
+            function updateFinancialDisplay() {
+                document.getElementById('currentBalance').textContent = formatCurrency(balance);
+                document.getElementById('totalIncome').textContent = formatCurrency(income);
+                document.getElementById('totalExpenses').textContent = formatCurrency(expenses);
+                
+                // Calculate total spending percentage against total budget
+                const totalBudget = Object.values(budgets).reduce((acc, val) => acc + val, 0);
+                const totalSpent = Object.values(spending).reduce((acc, val) => acc + val, 0);
+                const spendingPercentage = totalBudget > 0 ? Math.min(100, Math.round((totalSpent / totalBudget) * 100)) : 0;
+                
+                document.getElementById('spendingPercent').textContent = `${spendingPercentage}%`;
+                document.getElementById('spendingProgress').style.width = `${spendingPercentage}%`;
+            }
+            
+            function updateBudgetDisplay() {
+                // Update food budget display
+                const foodPercentage = Math.min(100, Math.round((spending.food / budgets.food) * 100));
+                document.getElementById('foodPercent').textContent = `${foodPercentage}%`;
+                document.getElementById('foodProgress').style.width = `${foodPercentage}%`;
+                document.getElementById('foodSpent').textContent = spending.food;
+                document.getElementById('foodBudget').textContent = budgets.food;
+                
+                // Update transport budget display
+                const transportPercentage = Math.min(100, Math.round((spending.transport / budgets.transport) * 100));
+                document.getElementById('transportPercent').textContent = `${transportPercentage}%`;
+                document.getElementById('transportProgress').style.width = `${transportPercentage}%`;
+                document.getElementById('transportSpent').textContent = spending.transport;
+                document.getElementById('transportBudget').textContent = budgets.transport;
+                
+                // Update entertainment budget display
+                const entertainmentPercentage = Math.min(100, Math.round((spending.entertainment / budgets.entertainment) * 100));
+                document.getElementById('entertainmentPercent').textContent = `${entertainmentPercentage}%`;
+                document.getElementById('entertainmentProgress').style.width = `${entertainmentPercentage}%`;
+                document.getElementById('entertainmentSpent').textContent = spending.entertainment;
+                document.getElementById('entertainmentBudget').textContent = budgets.entertainment;
+                
+                // Set progress bar colors based on percentage
+                updateProgressBarColor('foodProgress', foodPercentage);
+                updateProgressBarColor('transportProgress', transportPercentage);
+                updateProgressBarColor('entertainmentProgress', entertainmentPercentage);
+            }
+            
+            function updateProgressBarColor(elementId, percentage) {
+                const element = document.getElementById(elementId);
+                if (percentage < 50) {
+                    element.className = 'bg-green-600 h-2.5 rounded-full progress-bar';
+                } else if (percentage < 80) {
+                    element.className = 'bg-yellow-500 h-2.5 rounded-full progress-bar';
+                } else {
+                    element.className = 'bg-red-600 h-2.5 rounded-full progress-bar';
+                }
+            }
+            
+            function displayTransactions() {
+                if (transactions.length === 0) {
+                    noTransactions.classList.remove('hidden');
+                    return;
+                }
+                
+                noTransactions.classList.add('hidden');
+                transactionList.innerHTML = '';
+                
+                // Only show the 5 most recent transactions
+                const recentTransactions = transactions.slice(0, 5);
+                
+                recentTransactions.forEach(transaction => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-100 hover:bg-gray-50 transition';
+                    
+                    const descriptionCell = document.createElement('td');
+                    descriptionCell.className = 'py-3 text-sm';
+                    descriptionCell.textContent = transaction.description;
+                    
+                    const categoryCell = document.createElement('td');
+                    categoryCell.className = 'py-3 text-sm';
+                    const categoryCapitalized = transaction.category.charAt(0).toUpperCase() + transaction.category.slice(1);
+                    categoryCell.textContent = categoryCapitalized;
+                    
+                    const amountCell = document.createElement('td');
+                    amountCell.className = 'py-3 text-sm text-right';
+                    amountCell.textContent = transaction.type === 'income' 
+                        ? `+${formatCurrency(transaction.amount)}` 
+                        : `-${formatCurrency(transaction.amount)}`;
+                    amountCell.style.color = transaction.type === 'income' ? '#10b981' : '#ef4444';
+                    
+                    const dateCell = document.createElement('td');
+                    dateCell.className = 'py-3 text-sm text-right text-gray-500';
+                    dateCell.textContent = formatDate(transaction.date);
+                    
+                    row.appendChild(descriptionCell);
+                    row.appendChild(categoryCell);
+                    row.appendChild(amountCell);
+                    row.appendChild(dateCell);
+                    
+                    transactionList.appendChild(row);
+                });
+            }
+            
+            function displayAllTransactions(filterType = 'all') {
+                let filteredTransactions = allTransactions;
+                
+                // Apply filter
+                if (filterType === 'income') {
+                    filteredTransactions = allTransactions.filter(t => t.type === 'income');
+                } else if (filterType === 'expense') {
+                    filteredTransactions = allTransactions.filter(t => t.type === 'expense' && !t.isSplit);
+                } else if (filterType === 'splits') {
+                    filteredTransactions = allTransactions.filter(t => t.isSplit);
+                }
+                
+                if (filteredTransactions.length === 0) {
+                    noActivityTransactions.classList.remove('hidden');
+                    allTransactionsList.innerHTML = '';
+                    return;
+                }
+                
+                noActivityTransactions.classList.add('hidden');
+                allTransactionsList.innerHTML = '';
+                
+                filteredTransactions.forEach(transaction => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-100 hover:bg-gray-50 transition';
+                    
+                    const descriptionCell = document.createElement('td');
+                    descriptionCell.className = 'py-3 text-sm';
+                    descriptionCell.textContent = transaction.description;
+                    if (transaction.isSplit) {
+                        const splitBadge = document.createElement('span');
+                        splitBadge.className = 'ml-2 bg-indigo-100 text-indigo-800 text-xs px-2 py-0.5 rounded-full';
+                        splitBadge.textContent = 'Split';
+                        descriptionCell.appendChild(splitBadge);
+                    }
+                    
+                    const categoryCell = document.createElement('td');
+                    categoryCell.className = 'py-3 text-sm';
+                    const categoryCapitalized = transaction.category.charAt(0).toUpperCase() + transaction.category.slice(1);
+                    categoryCell.textContent = categoryCapitalized;
+                    
+                    const amountCell = document.createElement('td');
+                    amountCell.className = 'py-3 text-sm text-right';
+                    amountCell.textContent = transaction.type === 'income' 
+                        ? `+${formatCurrency(transaction.amount)}` 
+                        : `-${formatCurrency(transaction.amount)}`;
+                    amountCell.style.color = transaction.type === 'income' ? '#10b981' : '#ef4444';
+                    
+                    const dateCell = document.createElement('td');
+                    dateCell.className = 'py-3 text-sm text-right text-gray-500';
+                    dateCell.textContent = formatDate(transaction.date);
+                    
+                    const actionsCell = document.createElement('td');
+                    actionsCell.className = 'py-3 text-sm text-right';
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'text-red-500 hover:text-red-700 ml-2';
+                    deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                    deleteBtn.onclick = () => deleteTransaction(transaction.id);
+                    
+                    actionsCell.appendChild(deleteBtn);
+                    
+                    row.appendChild(descriptionCell);
+                    row.appendChild(categoryCell);
+                    row.appendChild(amountCell);
+                    row.appendChild(dateCell);
+                    row.appendChild(actionsCell);
+                    
+                    allTransactionsList.appendChild(row);
+                });
+            }
+            
+            function deleteTransaction(id) {
+                // Find transaction
+                const transaction = allTransactions.find(t => t.id === id);
+                if (!transaction) return;
+                
+                // Update financial data
+                if (transaction.type === 'income') {
+                    income -= transaction.amount;
+                    balance -= transaction.amount;
+                } else {
+                    expenses -= transaction.amount;
+                    balance += transaction.amount;
+                    
+                    // Update spending for the category
+                    if (spending.hasOwnProperty(transaction.category)) {
+                        spending[transaction.category] -= transaction.amount;
+                    } else {
+                        spending.other -= transaction.amount;
+                    }
+                }
+                
+                // Remove from arrays
+                allTransactions = allTransactions.filter(t => t.id !== id);
+                transactions = transactions.filter(t => t.id !== id);
+                
+                // Update UI
+                updateFinancialDisplay();
+                updateBudgetDisplay();
+                displayTransactions();
+                displayAllTransactions(activityFilter.value);
+                
+                showNotification('Transaction deleted');
+            }
+            
+            function toggleBudgetForm() {
+                setBudgetForm.classList.toggle('hidden');
+                document.getElementById('budgetProgressContainer').classList.toggle('hidden');
+            }
+            
+            function saveBudget() {
+                const category = document.getElementById('budgetCategory').value;
+                const amount = parseFloat(document.getElementById('budgetAmount').value);
+                
+                if (isNaN(amount) || amount <= 0) {
+                    alert('Please enter a valid budget amount');
+                    return;
+                }
+                
+                // Update budget for the selected category
+                budgets[category] = amount;
+                
+                // Update display
+                updateBudgetDisplay();
+                
+                // Hide budget form
+                toggleBudgetForm();
+                
+                // Show success message
+                showNotification('Budget updated successfully!');
+            }
+            
+            function toggleGoalForm() {
+                addGoalForm.classList.toggle('hidden');
+            }
+            
+            function saveGoal() {
+                const name = document.getElementById('goalName').value;
+                const amount = parseFloat(document.getElementById('goalAmount').value);
+                const date = document.getElementById('goalDate').value;
+                
+                if (!name || isNaN(amount) || amount <= 0 || !date) {
+                    alert('Please fill in all fields with valid values');
+                    return;
+                }
+                
+                // Add goal UI element (in a real app, would save to database/localStorage)
+                const goalContainer = document.getElementById('savingsGoalsContainer').querySelector('.flex-col');
+                const goalElement = document.createElement('div');
+                goalElement.className = 'border border-gray-100 rounded-lg p-3';
+                goalElement.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-medium">${name}</h3>
+                        <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">New</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                        <div class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-500">
+                        <span>$0 saved</span>
+                        <span>$${amount} goal</span>
+                    </div>
+                `;
+                
+                goalContainer.prepend(goalElement);
+                
+                // Hide goal form
+                toggleGoalForm();
+                
+                // Reset form
+                document.getElementById('goalName').value = '';
+                document.getElementById('goalAmount').value = '';
+                document.getElementById('goalDate').value = '';
+                
+                // Show success message
+                showNotification('Savings goal added successfully!');
+            }
+            
+            function toggleGroupForm() {
+                createGroupForm.classList.toggle('hidden');
+            }
+            
+            function saveGroup() {
+                const name = document.getElementById('groupName').value;
+                const membersInput = document.getElementById('groupMembers').value;
+                
+                if (!name || !membersInput) {
+                    alert('Please provide a group name and at least one member');
+                    return;
+                }
+                
+                const members = membersInput.split(',').map(m => m.trim()).filter(m => m);
+                members.push('You'); // Add current user
+                
+                // Create a unique ID for the group
+                const groupId = 'group_' + Date.now();
+                
+                // Add to groups object
+                groups[groupId] = {
+                    name: name,
+                    members: members,
+                    balances: {}
+                };
+                
+                // Initialize member balances to 0
+                members.forEach(member => {
+                    if (member !== 'You') {
+                        groups[groupId].balances[member] = 0;
+                    }
+                });
+                
+                // Add group UI element
+                const groupsContainer = document.querySelector('#splitSection .space-y-4');
+                const groupElement = document.createElement('div');
+                groupElement.className = 'split-item p-3 rounded-lg cursor-pointer';
+                groupElement.setAttribute('onclick', `selectGroup('${groupId}')`);
+                
+                // Create avatars
+                let avatarsHTML = '<div class="flex -space-x-2 mr-3">';
+                const colors = ['bg-indigo-600', 'bg-pink-600', 'bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-purple-600'];
+                
+                members.slice(0, 3).forEach((member, index) => {
+                    const initial = member.charAt(0).toUpperCase();
+                    avatarsHTML += `
+                        <div class="split-avatar z-${30 - index * 10} border-2 border-white ${colors[index % colors.length]}">
+                            ${initial}
+                        </div>
+                    `;
+                });
+                
+                avatarsHTML += '</div>';
+                
+                groupElement.innerHTML = `
+                    <div class="flex items-center">
+                        ${avatarsHTML}
+                        <div>
+                            <h3 class="font-medium">${name}</h3>
+                            <p class="text-xs text-gray-500">${members.length} members</p>
+                        </div>
+                    </div>
+                `;
+                
+                groupsContainer.prepend(groupElement);
+                
+                // Hide form and reset
+                toggleGroupForm();
+                document.getElementById('groupName').value = '';
+                document.getElementById('groupMembers').value = '';
+                
+                // Show success message
+                showNotification('Group created successfully!');
+            }
+            
+            function toggleSplitExpenseForm() {
+                addSplitExpenseForm.classList.toggle('hidden');
+            }
+            
+            function saveSplitExpense() {
+                const description = document.getElementById('splitDescription').value;
+                const amount = parseFloat(document.getElementById('splitAmount').value);
+                const paidBy = document.getElementById('paidBy').value;
+                const splitMethod = document.getElementById('splitMethod').value;
+                const currentGroupId = document.querySelector('#groupDetails').dataset.groupId;
+                
+                if (!description || isNaN(amount) || amount <= 0) {
+                    alert('Please fill in all required fields with valid values');
+                    return;
+                }
+                
+                if (!currentGroupId) {
+                    alert('Please select a group first');
+                    return;
+                }
+                
+                const group = groups[currentGroupId];
+                const date = new Date();
+                
+                // Create split expense object
+                const splitExpense = {
+                    id: 'split_' + Date.now(),
+                    description,
+                    amount,
+                    paidBy,
+                    splitMethod,
+                    date,
+                    group: currentGroupId
+                };
+                
+                // Add to split expenses array
+                splitExpenses.push(splitExpense);
+                
+                // Add to all transactions
+                allTransactions.unshift({
+                    id: Date.now(),
+                    type: 'expense',
+                    amount,
+                    category: 'other',
+                    description: `${description} (Split with ${group.name})`,
+                    date,
+                    isSplit: true
+                });
+                
+                // Update balances based on split method
+                if (splitMethod === 'equal') {
+                    const perPersonAmount = amount / group.members.length;
+                    
+                    group.members.forEach(member => {
+                        if (member !== paidBy) {
+                            // If current user paid
+                            if (paidBy === 'you' && member !== 'You') {
+                                group.balances[member] -= perPersonAmount;
+                            }
+                            // If someone else paid and current user owes
+                            else if (member === 'You') {
+                                group.balances[paidBy] += perPersonAmount;
+                            }
+                            // Other members' balances with each other
+                            else if (member !== 'You' && paidBy !== 'you') {
+                                group.balances[member] -= perPersonAmount;
+                                group.balances[paidBy] += perPersonAmount;
+                            }
+                        }
+                    });
+                }
+                
+                // Update the group details display
+                selectGroup(currentGroupId);
+                
+                // Hide form
+                toggleSplitExpenseForm();
+                
+                // Reset form
+                document.getElementById('splitDescription').value = '';
+                document.getElementById('splitAmount').value = '';
+                
+                // Show success message
+                showNotification('Split expense added successfully!');
+            }
+            
+            // Utility functions
+            function formatCurrency(amount) {
+                return amount.toFixed(2);
+            }
+            
+            function formatDate(date) {
+                return date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                });
+            }
+            
+            function showNotification(message) {
+                // Create notification element
+                const notification = document.createElement('div');
+                notification.className = 'fixed bottom-4 right-4 bg-black text-white px-4 py-2 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-y-20 opacity-0';
+                notification.textContent = message;
+                
+                // Add to DOM
+                document.body.appendChild(notification);
+                
+                // Animate in
+                setTimeout(() => {
+                    notification.classList.remove('translate-y-20', 'opacity-0');
+                }, 10);
+                
+                // Animate out and remove
+                setTimeout(() => {
+                    notification.classList.add('translate-y-20', 'opacity-0');
+                    setTimeout(() => {
+                        document.body.removeChild(notification);
+                    }, 300);
+                }, 3000);
+            }
+            
+            // Section navigation
+            window.showSection = function(sectionId) {
+                // Hide all sections
+                document.getElementById('homeSection').style.display = 'none';
+                document.getElementById('splitSection').style.display = 'none';
+                document.getElementById('activitySection').style.display = 'none';
+                document.getElementById('profileSection').style.display = 'none';
+                
+                // Show selected section
+                document.getElementById(sectionId).style.display = 'block';
+                
+                // Handle special cases
+                if (sectionId === 'addTransaction') {
+                    document.getElementById('homeSection').style.display = 'block';
+                    document.getElementById('addTransaction').scrollIntoView({ behavior: 'smooth' });
+                }
+                
+                // Update tabs (desktop)
+                document.querySelectorAll('.tab').forEach(tab => {
+                    tab.classList.remove('tab-active');
+                });
+                
+                // Map sectionId to tab index
+                const tabMap = {
+                    'homeSection': 0,
+                    'splitSection': 1,
+                    'activitySection': 2,
+                    'profileSection': 3
+                };
+                
+                const tabIndex = tabMap[sectionId] !== undefined ? tabMap[sectionId] : 0;
+                const tabs = document.querySelectorAll('.tab');
+                if (tabs[tabIndex]) {
+                    tabs[tabIndex].classList.add('tab-active');
+                }
+                
+                // If showing activity section, update the transactions list
+                if (sectionId === 'activitySection') {
+                    displayAllTransactions(activityFilter.value);
+                }
+            }
+            
+            // Group selection
+            window.selectGroup = function(groupId) {
+                const group = groups[groupId];
+                if (!group) return;
+                
+                document.getElementById('noGroupSelected').classList.add('hidden');
+                const groupDetails = document.getElementById('groupDetails');
+                groupDetails.classList.remove('hidden');
+                groupDetails.dataset.groupId = groupId;
+                
+                // Update group info
+                document.getElementById('selectedGroupName').textContent = group.name;
+                document.getElementById('selectedGroupMembers').textContent = `${group.members.length} members`;
+                
+                // Update balances
+                const balancesList = document.getElementById('balancesList');
+                balancesList.innerHTML = '';
+                
+                Object.entries(group.balances).forEach(([member, balance]) => {
+                    const balanceItem = document.createElement('div');
+                    balanceItem.className = `flex justify-between items-center p-2 ${balance > 0 ? 'bg-green-50' : balance < 0 ? 'bg-red-50' : 'bg-gray-50'} rounded-lg`;
+                    
+                    // Get a consistent color for this member
+                    const colors = ['bg-indigo-600', 'bg-pink-600', 'bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-purple-600'];
+                    const colorIndex = member.charCodeAt(0) % colors.length;
+                    
+                    balanceItem.innerHTML = `
+                        <div class="flex items-center">
+                            <div class="split-avatar mr-2 ${colors[colorIndex]}">${member.charAt(0).toUpperCase()}</div>
+                            <span>${member}</span>
+                        </div>
+                        <span class="${balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-gray-600'} font-medium">
+                            ${balance > 0 ? '+' : ''}${formatCurrency(balance)}
+                        </span>
+                    `;
+                    
+                    balancesList.appendChild(balanceItem);
+                });
+                
+                // Update expenses list
+                const expensesList = document.getElementById('expensesList');
+                expensesList.innerHTML = '';
+                
+                // Find expenses for this group
+                const groupExpenses = splitExpenses.filter(exp => exp.group === groupId);
+                
+                if (groupExpenses.length === 0) {
+                    expensesList.innerHTML = '<div class="text-center text-gray-500 py-4">No expenses yet in this group.</div>';
+                } else {
+                    groupExpenses.slice(0, 5).forEach(expense => {
+                        const expenseItem = document.createElement('div');
+                        expenseItem.className = 'flex justify-between items-center p-3 border border-gray-100 rounded-lg';
+                        
+                        // Get avatar color
+                        const colors = ['bg-indigo-600', 'bg-pink-600', 'bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-purple-600'];
+                        const colorIndex = expense.paidBy.charCodeAt(0) % colors.length;
+                        
+                        expenseItem.innerHTML = `
+                            <div>
+                                <div class="flex items-center">
+                                    <div class="split-avatar mr-2 ${colors[colorIndex]}">${expense.paidBy.charAt(0).toUpperCase()}</div>
+                                    <span class="text-sm">${expense.paidBy === 'you' ? 'You' : expense.paidBy} paid</span>
+                                </div>
+                                <p class="text-gray-700 font-medium mt-1">${expense.description}</p>
+                                <p class="text-xs text-gray-500">${formatDate(expense.date)}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-semibold">${formatCurrency(expense.amount)}</p>
+                                <p class="text-xs text-gray-500">${getSplitMethodText(expense.splitMethod)}</p>
+                            </div>
+                        `;
+                        
+                        expensesList.appendChild(expenseItem);
+                    });
+                }
+                
+                // Update the paidBy dropdown in the split form
+                const paidByDropdown = document.getElementById('paidBy');
+                paidByDropdown.innerHTML = '<option value="you">You</option>';
+                
+                group.members.forEach(member => {
+                    if (member !== 'You') { // Skip current user as they're already added
+                        paidByDropdown.innerHTML += `<option value="${member}">${member}</option>`;
+                    }
+                });
+            }
+            
+            // Helper function
+            function getSplitMethodText(splitMethod) {
+                switch (splitMethod) {
+                    case 'equal': return 'Split equally';
+                    case 'percent': return 'Split by percentage';
+                    case 'exact': return 'Split by exact amounts';
+                    default: return 'Split';
+                }
+            }
+            
+            // Initialize with some sample transactions
+            function addSampleTransactions() {
+                const sampleTransactions = [
+                    { id: 1, type: 'income', amount: 650, category: 'other', description: 'Scholarship', date: new Date(Date.now() - 86400000 * 7), isSplit: false },
+                    { id: 2, type: 'expense', amount: 12.50, category: 'food', description: 'Campus Cafe', date: new Date(Date.now() - 86400000 * 5), isSplit: false },
+                    { id: 3, type: 'expense', amount: 25, category: 'transport', description: 'Bus Pass', date: new Date(Date.now() - 86400000 * 3), isSplit: false },
+                    { id: 4, type: 'expense', amount: 75, category: 'food', description: 'Groceries', date: new Date(Date.now() - 86400000 * 2), isSplit: true }
+                ];
+                
+                sampleTransactions.forEach(transaction => {
+                    transactions.unshift(transaction);
+                    allTransactions.unshift(transaction);
+                    
+                    if (transaction.type === 'income') {
+                        income += transaction.amount;
+                        balance += transaction.amount;
+                    } else {
+                        expenses += transaction.amount;
+                        balance -= transaction.amount;
+                        
+                        // Update spending for the category
+                        if (spending.hasOwnProperty(transaction.category)) {
+                            spending[transaction.category] += transaction.amount;
+                        } else {
+                            spending.other += transaction.amount;
+                        }
+                    }
+                });
+                
+                updateFinancialDisplay();
+                updateBudgetDisplay();
+                displayTransactions();
+                displayAllTransactions();
+            }
+            
+            // Add sample data
+            addSampleTransactions();
+        });
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
